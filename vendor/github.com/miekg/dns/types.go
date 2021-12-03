@@ -81,7 +81,6 @@ const (
 	TypeCDNSKEY    uint16 = 60
 	TypeOPENPGPKEY uint16 = 61
 	TypeCSYNC      uint16 = 62
-	TypeZONEMD     uint16 = 63
 	TypeSVCB       uint16 = 64
 	TypeHTTPS      uint16 = 65
 	TypeSPF        uint16 = 99
@@ -149,14 +148,6 @@ const (
 	OpcodeStatus = 2
 	OpcodeNotify = 4
 	OpcodeUpdate = 5
-)
-
-// Used in ZONEMD https://tools.ietf.org/html/rfc8976
-const (
-	ZoneMDSchemeSimple = 1
-
-	ZoneMDHashAlgSHA384 = 1
-	ZoneMDHashAlgSHA512 = 2
 )
 
 // Header is the wire format for the DNS packet header.
@@ -254,8 +245,8 @@ type ANY struct {
 
 func (rr *ANY) String() string { return rr.Hdr.String() }
 
-func (*ANY) parse(c *zlexer, origin string) *ParseError {
-	return &ParseError{err: "ANY records do not have a presentation format"}
+func (rr *ANY) parse(c *zlexer, origin string) *ParseError {
+	panic("dns: internal error: parse should never be called on ANY")
 }
 
 // NULL RR. See RFC 1035.
@@ -269,8 +260,8 @@ func (rr *NULL) String() string {
 	return ";" + rr.Hdr.String() + rr.Data
 }
 
-func (*NULL) parse(c *zlexer, origin string) *ParseError {
-	return &ParseError{err: "NULL records do not have a presentation format"}
+func (rr *NULL) parse(c *zlexer, origin string) *ParseError {
+	panic("dns: internal error: parse should never be called on NULL")
 }
 
 // CNAME RR. See RFC 1034.
@@ -1370,23 +1361,6 @@ func (rr *CSYNC) len(off int, compression map[string]struct{}) int {
 	return l
 }
 
-// ZONEMD RR, from draft-ietf-dnsop-dns-zone-digest
-type ZONEMD struct {
-	Hdr    RR_Header
-	Serial uint32
-	Scheme uint8
-	Hash   uint8
-	Digest string `dns:"hex"`
-}
-
-func (rr *ZONEMD) String() string {
-	return rr.Hdr.String() +
-		strconv.Itoa(int(rr.Serial)) +
-		" " + strconv.Itoa(int(rr.Scheme)) +
-		" " + strconv.Itoa(int(rr.Hash)) +
-		" " + rr.Digest
-}
-
 // APL RR. See RFC 3123.
 type APL struct {
 	Hdr      RR_Header
@@ -1413,13 +1387,13 @@ func (rr *APL) String() string {
 }
 
 // str returns presentation form of the APL prefix.
-func (a *APLPrefix) str() string {
+func (p *APLPrefix) str() string {
 	var sb strings.Builder
-	if a.Negation {
+	if p.Negation {
 		sb.WriteByte('!')
 	}
 
-	switch len(a.Network.IP) {
+	switch len(p.Network.IP) {
 	case net.IPv4len:
 		sb.WriteByte('1')
 	case net.IPv6len:
@@ -1428,20 +1402,20 @@ func (a *APLPrefix) str() string {
 
 	sb.WriteByte(':')
 
-	switch len(a.Network.IP) {
+	switch len(p.Network.IP) {
 	case net.IPv4len:
-		sb.WriteString(a.Network.IP.String())
+		sb.WriteString(p.Network.IP.String())
 	case net.IPv6len:
 		// add prefix for IPv4-mapped IPv6
-		if v4 := a.Network.IP.To4(); v4 != nil {
+		if v4 := p.Network.IP.To4(); v4 != nil {
 			sb.WriteString("::ffff:")
 		}
-		sb.WriteString(a.Network.IP.String())
+		sb.WriteString(p.Network.IP.String())
 	}
 
 	sb.WriteByte('/')
 
-	prefix, _ := a.Network.Mask.Size()
+	prefix, _ := p.Network.Mask.Size()
 	sb.WriteString(strconv.Itoa(prefix))
 
 	return sb.String()
@@ -1455,17 +1429,17 @@ func (a *APLPrefix) equals(b *APLPrefix) bool {
 }
 
 // copy returns a copy of the APL prefix.
-func (a *APLPrefix) copy() APLPrefix {
+func (p *APLPrefix) copy() APLPrefix {
 	return APLPrefix{
-		Negation: a.Negation,
-		Network:  copyNet(a.Network),
+		Negation: p.Negation,
+		Network:  copyNet(p.Network),
 	}
 }
 
 // len returns size of the prefix in wire format.
-func (a *APLPrefix) len() int {
+func (p *APLPrefix) len() int {
 	// 4-byte header and the network address prefix (see Section 4 of RFC 3123)
-	prefix, _ := a.Network.Mask.Size()
+	prefix, _ := p.Network.Mask.Size()
 	return 4 + (prefix+7)/8
 }
 
@@ -1498,7 +1472,7 @@ func StringToTime(s string) (uint32, error) {
 
 // saltToString converts a NSECX salt to uppercase and returns "-" when it is empty.
 func saltToString(s string) string {
-	if s == "" {
+	if len(s) == 0 {
 		return "-"
 	}
 	return strings.ToUpper(s)

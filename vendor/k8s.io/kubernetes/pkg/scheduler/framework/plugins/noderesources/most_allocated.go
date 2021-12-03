@@ -46,8 +46,8 @@ func (ma *MostAllocated) Name() string {
 // Score invoked at the Score extension point.
 func (ma *MostAllocated) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
 	nodeInfo, err := ma.handle.SnapshotSharedLister().NodeInfos().Get(nodeName)
-	if err != nil || nodeInfo.Node() == nil {
-		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("getting node %q from Snapshot: %v, node is nil: %v", nodeName, err, nodeInfo.Node() == nil))
+	if err != nil {
+		return 0, framework.AsStatus(fmt.Errorf("getting node %q from Snapshot: %w", nodeName, err))
 	}
 
 	// ma.score favors nodes with most requested resources.
@@ -110,7 +110,9 @@ func mostRequestedScore(requested, capacity int64) int64 {
 		return 0
 	}
 	if requested > capacity {
-		return 0
+		// `requested` might be greater than `capacity` because pods with no
+		// requests get minimum values.
+		requested = capacity
 	}
 
 	return (requested * framework.MaxNodeScore) / capacity

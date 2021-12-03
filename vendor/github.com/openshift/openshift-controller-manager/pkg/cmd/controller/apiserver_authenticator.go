@@ -22,7 +22,8 @@ func newRemoteAuthenticator(tokenReview authenticationclient.TokenReviewInterfac
 	authenticators := []authenticator.Request{}
 
 	// TODO audiences
-	tokenAuthenticator, err := webhooktoken.NewFromInterface(tokenReview, nil, *webhooktoken.DefaultRetryBackoff())
+	TokenAccessReviewTimeout := 10 * time.Second
+	tokenAuthenticator, err := webhooktoken.NewFromInterface(tokenReview, nil, *webhooktoken.DefaultRetryBackoff(), TokenAccessReviewTimeout)
 	if err != nil {
 		return nil, err
 	}

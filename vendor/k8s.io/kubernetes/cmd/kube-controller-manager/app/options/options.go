@@ -47,6 +47,8 @@ import (
 
 	// add the kubernetes feature gates
 	_ "k8s.io/kubernetes/pkg/features"
+
+	libgorestclient "github.com/openshift/library-go/pkg/config/client"
 )
 
 const (
@@ -194,7 +196,6 @@ func NewKubeControllerManagerOptions() (*KubeControllerManagerOptions, error) {
 
 	s.Authentication.RemoteKubeConfigFileOptional = true
 	s.Authorization.RemoteKubeConfigFileOptional = true
-	s.Authorization.AlwaysAllowPaths = []string{"/healthz"}
 
 	// Set the PairName but leave certificate directory blank to generate in-memory by default
 	s.SecureServing.ServerCert.CertDirectory = ""
@@ -272,6 +273,7 @@ func (s *KubeControllerManagerOptions) Flags(allControllers []string, disabledBy
 	fs.StringVar(&dummy, "insecure-experimental-approve-all-kubelet-csrs-for-group", "", "This flag does nothing.")
 	fs.StringVar(&s.OpenShiftContext.OpenShiftConfig, "openshift-config", s.OpenShiftContext.OpenShiftConfig, "indicates that this process should be compatible with openshift start master")
 	fs.MarkHidden("openshift-config")
+	fs.BoolVar(&s.OpenShiftContext.UnsupportedKubeAPIOverPreferredHost, "unsupported-kube-api-over-localhost", false, "when set makes KCM prefer talking to localhost kube-apiserver (when available) instead of LB")
 	utilfeature.DefaultMutableFeatureGate.AddFlag(fss.FlagSet("generic"))
 
 	return fss
@@ -444,23 +446,22 @@ func (s KubeControllerManagerOptions) Config(allControllers []string, disabledBy
 	kubeconfig.QPS = s.Generic.ClientConnection.QPS
 	kubeconfig.Burst = int(s.Generic.ClientConnection.Burst)
 
+	if s.OpenShiftContext.PreferredHostRoundTripperWrapperFn != nil {
+		libgorestclient.DefaultServerName(kubeconfig)
+		kubeconfig.Wrap(s.OpenShiftContext.PreferredHostRoundTripperWrapperFn)
+	}
+
 	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeconfig, KubeControllerManagerUserAgent))
 	if err != nil {
 		return nil, err
 	}
 
-	// shallow copy, do not modify the kubeconfig.Timeout.
-	config := *kubeconfig
-	config.Timeout = s.Generic.LeaderElection.RenewDeadline.Duration
-	leaderElectionClient := clientset.NewForConfigOrDie(restclient.AddUserAgent(&config, "leader-election"))
-
 	eventRecorder := createRecorder(client, KubeControllerManagerUserAgent)
 
 	c := &kubecontrollerconfig.Config{
-		Client:               client,
-		Kubeconfig:           kubeconfig,
-		EventRecorder:        eventRecorder,
-		LeaderElectionClient: leaderElectionClient,
+		Client:        client,
+		Kubeconfig:    kubeconfig,
+		EventRecorder: eventRecorder,
 	}
 	if err := s.ApplyTo(c); err != nil {
 		return nil, err

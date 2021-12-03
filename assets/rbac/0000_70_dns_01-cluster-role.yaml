@@ -13,6 +13,7 @@ rules:
   verbs:
   - list
   - watch
+
 - apiGroups:
   - discovery.k8s.io
   resources:
@@ -20,12 +21,14 @@ rules:
   verbs:
   - list
   - watch
+
 - apiGroups:
   - authentication.k8s.io
   resources:
   - tokenreviews
   verbs:
   - create
+
 - apiGroups:
   - authorization.k8s.io
   resources:

@@ -22,6 +22,7 @@ import (
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	kubefeatures "k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpumanager"
+	"k8s.io/kubernetes/pkg/kubelet/cm/memorymanager"
 	"k8s.io/kubernetes/pkg/kubelet/cm/topologymanager"
 )
 
@@ -35,6 +36,7 @@ type InternalContainerLifecycle interface {
 // Implements InternalContainerLifecycle interface.
 type internalContainerLifecycleImpl struct {
 	cpuManager      cpumanager.Manager
+	memoryManager   memorymanager.Manager
 	topologyManager topologymanager.Manager
 }
 
@@ -43,11 +45,12 @@ func (i *internalContainerLifecycleImpl) PreStartContainer(pod *v1.Pod, containe
 		i.cpuManager.AddContainer(pod, container, containerID)
 	}
 
+	if i.memoryManager != nil {
+		i.memoryManager.AddContainer(pod, container, containerID)
+	}
+
 	if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.TopologyManager) {
-		err := i.topologyManager.AddContainer(pod, containerID)
-		if err != nil {
-			return err
-		}
+		i.topologyManager.AddContainer(pod, container, containerID)
 	}
 	return nil
 }

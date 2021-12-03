@@ -149,7 +149,7 @@ func (l *Lifecycle) Admit(ctx context.Context, a admission.Attributes, o admissi
 			exists = true
 		}
 		if exists {
-			klog.V(4).Infof("found %s in cache after waiting", a.GetNamespace())
+			klog.V(4).InfoS("Namespace existed in cache after waiting", "namespace", klog.KRef("", a.GetNamespace()))
 		}
 	}
 
@@ -170,7 +170,8 @@ func (l *Lifecycle) Admit(ctx context.Context, a admission.Attributes, o admissi
 		case err != nil:
 			return errors.NewInternalError(err)
 		}
-		klog.V(4).Infof("found %s via storage lookup", a.GetNamespace())
+
+		klog.V(4).InfoS("Found namespace via storage lookup", "namespace", klog.KRef("", a.GetNamespace()))
 	}
 
 	// ensure that we're not trying to create objects in terminating namespaces
@@ -233,7 +234,13 @@ func (l *Lifecycle) ValidateInitialization() error {
 // accessReviewResources are resources which give a view into permissions in a namespace.  Users must be allowed to create these
 // resources because returning "not found" errors allows someone to search for the "people I'm going to fire in 2017" namespace.
 var accessReviewResources = map[schema.GroupResource]bool{
-	{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"}: true,
+	{Group: "authorization.k8s.io", Resource: "localsubjectaccessreviews"}:                            true,
+	schema.GroupResource{Group: "authorization.openshift.io", Resource: "subjectaccessreviews"}:       true,
+	schema.GroupResource{Group: "authorization.openshift.io", Resource: "localsubjectaccessreviews"}:  true,
+	schema.GroupResource{Group: "authorization.openshift.io", Resource: "resourceaccessreviews"}:      true,
+	schema.GroupResource{Group: "authorization.openshift.io", Resource: "localresourceaccessreviews"}: true,
+	schema.GroupResource{Group: "authorization.openshift.io", Resource: "selfsubjectrulesreviews"}:    true,
+	schema.GroupResource{Group: "authorization.openshift.io", Resource: "subjectrulesreviews"}:        true,
 }
 
 func isAccessReview(a admission.Attributes) bool {

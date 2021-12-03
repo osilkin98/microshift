@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-// SVCBKey is the type of the keys used in the SVCB RR.
 type SVCBKey uint16
 
 // Keys defined in draft-ietf-dnsop-svcb-https-01 Section 12.3.2.
@@ -205,7 +204,7 @@ type SVCB struct {
 	Hdr      RR_Header
 	Priority uint16
 	Target   string         `dns:"domain-name"`
-	Value    []SVCBKeyValue `dns:"pairs"` // Value must be empty if Priority is zero.
+	Value    []SVCBKeyValue `dns:"pairs"` // Value must be empty if Priority is non-zero.
 }
 
 // HTTPS RR. Everything valid for SVCB applies to HTTPS as well.
@@ -322,7 +321,7 @@ func (s *SVCBAlpn) pack() ([]byte, error) {
 	// Liberally estimate the size of an alpn as 10 octets
 	b := make([]byte, 0, 10*len(s.Alpn))
 	for _, e := range s.Alpn {
-		if e == "" {
+		if len(e) == 0 {
 			return nil, errors.New("dns: svcbalpn: empty alpn-id")
 		}
 		if len(e) > 255 {
@@ -391,7 +390,7 @@ func (*SVCBNoDefaultAlpn) unpack(b []byte) error {
 }
 
 func (*SVCBNoDefaultAlpn) parse(b string) error {
-	if b != "" {
+	if len(b) != 0 {
 		return errors.New("dns: svcbnodefaultalpn: no_default_alpn must have no value")
 	}
 	return nil
@@ -512,13 +511,8 @@ func (s *SVCBIPv4Hint) parse(b string) error {
 }
 
 func (s *SVCBIPv4Hint) copy() SVCBKeyValue {
-	hint := make([]net.IP, len(s.Hint))
-	for i, ip := range s.Hint {
-		hint[i] = copyIP(ip)
-	}
-
 	return &SVCBIPv4Hint{
-		Hint: hint,
+		append([]net.IP(nil), s.Hint...),
 	}
 }
 
@@ -635,13 +629,8 @@ func (s *SVCBIPv6Hint) parse(b string) error {
 }
 
 func (s *SVCBIPv6Hint) copy() SVCBKeyValue {
-	hint := make([]net.IP, len(s.Hint))
-	for i, ip := range s.Hint {
-		hint[i] = copyIP(ip)
-	}
-
 	return &SVCBIPv6Hint{
-		Hint: hint,
+		append([]net.IP(nil), s.Hint...),
 	}
 }
 

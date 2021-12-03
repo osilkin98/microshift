@@ -97,6 +97,19 @@ type NetworkSpec struct {
 	// +optional
 	// +kubebuilder:validation:MinProperties=1
 	ExportNetworkFlows *ExportNetworkFlows `json:"exportNetworkFlows,omitempty"`
+
+	// migration enables and configures the cluster network migration.
+	// Setting this to the target network type to allow changing the default network.
+	// If unset, the operation of changing cluster default network plugin will be rejected.
+	// +optional
+	Migration *NetworkMigration `json:"migration,omitempty"`
+}
+
+// NetworkMigration represents the cluster network configuration.
+type NetworkMigration struct {
+	// networkType is the target type of network migration
+	// The supported values are OpenShiftSDN, OVNKubernetes
+	NetworkType NetworkType `json:"networkType"`
 }
 
 // ClusterNetworkEntry is a subnet from which to allocate PodIPs. A network of size
@@ -382,24 +395,27 @@ type ExportNetworkFlows struct {
 
 type NetFlowConfig struct {
 	// netFlow defines the NetFlow collectors that will consume the flow data exported from OVS.
-	// It is a list of strings formatted as ip:port
+	// It is a list of strings formatted as ip:port with a maximum of ten items
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
 	Collectors []IPPort `json:"collectors,omitempty"`
 }
 
 type SFlowConfig struct {
-	// sFlowCollectors is list of strings formatted as ip:port
+	// sFlowCollectors is list of strings formatted as ip:port with a maximum of ten items
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
 	Collectors []IPPort `json:"collectors,omitempty"`
 }
 
 type IPFIXConfig struct {
-	// ipfixCollectors is list of strings formatted as ip:port
+	// ipfixCollectors is list of strings formatted as ip:port with a maximum of ten items
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
 	Collectors []IPPort `json:"collectors,omitempty"`
 }
 
-// +kubebuilder:validation:Pattern=`^(([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]):[0-9]+$`
+// +kubebuilder:validation:Pattern=`^(([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[0-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]):([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$`
 type IPPort string
 
 type PolicyAuditConfig struct {
